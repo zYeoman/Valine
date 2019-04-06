@@ -6,6 +6,7 @@ const timeAgo = require('./utils/timeago');
 const detect = require('./utils/detect');
 const Utils = require('./utils/htmlUtils');
 const Emoji = require('./plugins/emojis');
+const Sticker = require('./plugins/stickers');
 const hanabi = require('hanabi');
 const LINKREG = /^https?\:\/\//;
 
@@ -395,7 +396,7 @@ let CounterFactory = {
 
 /**
  * LeanCloud SDK Query Util
- * @param {String} url 
+ * @param {String} url
  * @param {String} id
  */
 ValineFactory.prototype.Q = function (k) {
@@ -453,8 +454,8 @@ ValineFactory.prototype.installLocale = function (locale, mode) {
 }
 
 /**
- * 
- * @param {String} path 
+ *
+ * @param {String} path
  */
 ValineFactory.prototype.setPath = function (path) {
     _path = path || _path;
@@ -474,24 +475,46 @@ ValineFactory.prototype.bind = function (option) {
     let _emojiCtrl = Utils.find(root.el, '.vemoji-btn');
     // 评论内容预览
     let _vpreviewCtrl = Utils.find(root.el, `.vpreview-btn`);
-    let emojiData = Emoji.data;
-    for (let key in emojiData) {
-        if (emojiData.hasOwnProperty(key)) {
+    let {stickers, noemoji} = option;
+    Sticker.init(stickers);
+    let stickerData = Sticker.data;
+    for (let key in stickerData) {
+        if (stickerData.hasOwnProperty(key)) {
             (function (name, val) {
-                let _i = Utils.create('i', {
+                let _i = Utils.create('img', {
                     'name': name,
-                    'title': name
+                    'title': name,
+                    'src': Sticker.pre + val
                 });
-                _i.innerHTML = val;
                 _vemojis.appendChild(_i);
                 Utils.on('click', _i, (e) => {
                     let _veditor = Utils.find(root.el, '.veditor');
-                    _insertAtCaret(_veditor, val)
+                    _insertAtCaret(_veditor, '[' + name + ']')
                     syncContentEvt(_veditor)
                 });
-            })(key, emojiData[key])
+            })(key, stickerData[key])
         }
     }
+    noemoji || (()=> {
+    let emojiData = Emoji.data;
+    for (let key in emojiData) {
+          if (emojiData.hasOwnProperty(key)) {
+              (function (name, val) {
+                  let _i = Utils.create('i', {
+                      'name': name,
+                      'title': name
+                  });
+                  _i.innerHTML = val;
+                  _vemojis.appendChild(_i);
+                  Utils.on('click', _i, (e) => {
+                      let _veditor = Utils.find(root.el, '.veditor');
+                      _insertAtCaret(_veditor, val)
+                      syncContentEvt(_veditor)
+                  });
+              })(key, emojiData[key])
+          }
+      }
+    })()
     root.emoji = {
         show() {
             root.preview.hide();
@@ -558,13 +581,14 @@ ValineFactory.prototype.bind = function (option) {
 
     /**
      * 评论框内容变化事件
-     * @param {HTMLElement} el 
+     * @param {HTMLElement} el
      */
     let syncContentEvt = (_el) => {
         let _v = 'comment';
         let _val = (_el.value || '');
         _val = Emoji.parse(_val);
         _el.value = _val;
+        _val = Sticker.parse(_val)
         let ret = xssFilter(marked(_val));
         defaultComment[_v] = ret;
         _vpreview.innerHTML = ret;
